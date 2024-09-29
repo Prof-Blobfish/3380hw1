@@ -75,9 +75,12 @@ def main():
         # Your database operations here
         
         # Usage
-        tables_data = parse_input_file('tc1.txt')
-        for table in tables_data:
-            print(table)
+        files = ['tc1.txt', 'tc2.txt', 'tc3.txt', 'tc4.txt', 'tc5.txt', 'tc6.txt', 'tc7.txt', 'tc8.txt', 'tc9.txt']
+        for file in files:
+            tables_data = parse_input_file(file)
+            print(file)
+            for table in tables_data:
+                print(table)
 
         
         # Don't forget to close the connection when you're done
