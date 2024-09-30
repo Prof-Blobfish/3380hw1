@@ -1,7 +1,8 @@
 import psycopg2
-import sys
-import re
 from psycopg2 import OperationalError
+import sys
+import os
+import re
 
 def connect_to_db():
     # Define our connection parameters
@@ -34,7 +35,20 @@ def connect_to_db():
     except OperationalError as e:
         print(f"Error connecting to the database: {e}")
         return None, None
-    
+
+def check_file_exists(file_path):
+    # Method 1: Using os.path.exists()
+    if os.path.exists(file_path):
+        print(f"File exists : {file_path}")
+    else:
+        print(f"File does not exist : {file_path}")
+        
+def get_filename_without_extension(filepath):
+    # Get the base name (filename with extension, without path)
+    base_name = os.path.basename(filepath)
+    # Split the base name and return just the filename without extension
+    return os.path.splitext(base_name)[0]
+
 def drop_all_tables(cursor):
     try:
         # Query to find all tables in the 'public' schema
@@ -133,18 +147,17 @@ def generate_create_table_sql(tables):
 
 
 def main():
-    # Get the input file name from command-line arguments
+    # Check if there are any command-line arguments
     if len(sys.argv) < 2:
-        print("Usage: python3 checkdb.py database=your_file.txt")
-        return
+        print("Usage: python3 script_name.py database=filename.txt")
+        sys.exit(1)
 
-    arg = sys.argv[1]
-    if arg.startswith("database="):
-        input_file = arg.split("=", 1)[1].strip()  # Strip whitespace
-        print(f"Input file: '{input_file}'")  # Debug print to check the file name
-    else:
-        print("Invalid argument format. Expected format: database=your_file.txt")
-        return
+    # Process command-line arguments
+    for arg in sys.argv[1:]:
+        if arg.startswith("database="):
+            input_file = arg.split("=")[1]
+            print(f"Database file: {input_file}")
+            check_file_exists(input_file)
     
     # Connect to the database
     connection, cursor = connect_to_db()
@@ -197,7 +210,7 @@ def main():
 
             # Print the results
             print("-----------------------------------------")
-            print(f"{'Table':<20} {'Referential Integrity':<20} {'Normalized'}")
+            print(f"{'Table':<10} {'Referential Integrity':<25} {'Normalized'}")
             for table_name in integrity_results.keys():
                 print(f"{table_name:<20} {integrity_results[table_name]:<20} {normalization_results[table_name]}")
             print("-----------------------------------------")
