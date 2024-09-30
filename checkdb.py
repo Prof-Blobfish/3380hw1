@@ -50,6 +50,7 @@ def get_filename_without_extension(filepath):
     return os.path.splitext(base_name)[0]
 
 def drop_all_tables(cursor):
+    drop_queries = []
     try:
         # Query to find all tables in the 'public' schema
         cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';")
@@ -58,8 +59,12 @@ def drop_all_tables(cursor):
         for table in tables:
             table_name = table[0]
             # Drop each table with CASCADE to handle foreign key dependencies
-            cursor.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE;")
+            drop_query = (f"DROP TABLE IF EXISTS {table_name} CASCADE;")
+            drop_queries.append(drop_query)
+            cursor.execute(drop_query)
             print(f"Dropped table {table_name}")
+
+        return drop_queries
 
     except Exception as e:
         print(f"Error dropping tables: {e}")
@@ -99,9 +104,6 @@ def parse_input_file(file_path):
 
     return tables
 
-# Make a function to check for referential integrity (checks referred table if fk is that table's pk)
-
-
 def generate_create_table_sql(tables):
     create_table_queries = []
     add_foreign_key_queries = []
@@ -124,7 +126,7 @@ def generate_create_table_sql(tables):
         
         # Add columns
         for column in columns:
-            sql_query += f"    {column} VARCHAR(255),\n"
+            sql_query += f"    {column} int,\n"
         
         # Add the primary key
         sql_query += f"    PRIMARY KEY ({primary_key})\n"
@@ -144,6 +146,29 @@ def generate_create_table_sql(tables):
 
     return create_table_queries, add_foreign_key_queries
 
+def check_3nf_bcnf(tables):
+    normalization_results = {}
+
+    for table in tables:
+        primary_key = table['primary_key']
+        foreign_keys = table['foreign_keys']
+        columns = table['columns']
+
+        # Check if the table violates BCNF or 3NF
+        bcnf_violated = False
+        for fk_column, referenced in foreign_keys:
+            if fk_column != primary_key and fk_column in columns:
+                # A violation of BCNF would be if the foreign key is not a superkey
+                # For 3NF, a transitive dependency could indicate violation (simplified assumption)
+                bcnf_violated = True
+                break
+
+        if not bcnf_violated:
+            normalization_results[table['table_name']] = 'Y'  # Normalized (3NF/BCNF)
+        else:
+            normalization_results[table['table_name']] = 'N'  # Not normalized (violates 3NF/BCNF)
+
+    return normalization_results
 
 
 def main():
@@ -158,6 +183,11 @@ def main():
             input_file = arg.split("=")[1]
             print(f"Database file: {input_file}")
             check_file_exists(input_file)
+
+    results_file = "output_" + get_filename_without_extension(input_file) + ".txt"
+    sql_file = get_filename_without_extension(input_file) + ".sql"
+    print("Results: " + results_file)
+    print("SQL Queries: " + sql_file)
     
     # Connect to the database
     connection, cursor = connect_to_db()
@@ -165,7 +195,7 @@ def main():
     if connection:
         try:
             # Drop all existing tables first
-            drop_all_tables(cursor)
+            drop_queries = drop_all_tables(cursor)
             connection.commit()
             print("All tables dropped successfully.")
 
@@ -175,6 +205,15 @@ def main():
 
             # Generate SQL queries for creating tables and foreign keys
             create_table_queries, add_foreign_key_queries = generate_create_table_sql(tables_data)
+
+            with open(sql_file, 'w') as file:
+                for dq in drop_queries:
+                    file.write(dq + "\n")
+                file.write('\n')
+                for q in create_table_queries:
+                    file.write(q + "\n\n")
+
+            print(f"SQL queries successfully written to {sql_file}")
 
             integrity_results = {}
             normalization_results = {}
@@ -208,19 +247,23 @@ def main():
             connection.commit()
             print(f"Tables and foreign keys from {input_file} created successfully!\n")
 
-            # Print the results
-            print("-----------------------------------------")
-            print(f"{'Table':<10} {'Referential Integrity':<25} {'Normalized'}")
-            for table_name in integrity_results.keys():
-                print(f"{table_name:<20} {integrity_results[table_name]:<20} {normalization_results[table_name]}")
-            print("-----------------------------------------")
-            
-            # Check overall integrity and normalization
-            db_integrity = 'Y' if all(result == 'Y' for result in integrity_results.values()) else 'N'
-            db_normalized = 'Y' if all(result == 'Y' for result in normalization_results.values()) else 'N'
-            print(f"DB Referential Integrity: {db_integrity}")
-            print(f"DB Normalized: {db_normalized}")
-            print("-----------------------------------------")
+            normalization_results = check_3nf_bcnf(tables_data)
+
+            with open(results_file, 'w') as file:
+                file.write("-----------------------------------------\n")
+                file.write(f"{'Table':<10} {'Referential Integrity':<25} {'Normalized'}\n")
+                for table_name in integrity_results.keys():
+                    file.write(f"{table_name:<20} {integrity_results[table_name]:<20} {normalization_results[table_name]}\n")
+                file.write("-----------------------------------------\n")
+                
+                # Check overall integrity and normalization
+                db_integrity = 'Y' if all(result == 'Y' for result in integrity_results.values()) else 'N'
+                db_normalized = 'Y' if all(result == 'Y' for result in normalization_results.values()) else 'N'
+                file.write(f"DB Referential Integrity: {db_integrity}\n")
+                file.write(f"DB Normalized: {db_normalized}\n")
+                file.write("-----------------------------------------\n")
+
+            print(f"Results successfully written to {results_file}")
 
         except Exception as e:
             print(f"An error occurred: {e}")
