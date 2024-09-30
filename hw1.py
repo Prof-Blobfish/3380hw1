@@ -72,65 +72,101 @@ def parse_input_file(file_path):
 
 
 def generate_create_table_sql(tables):
-    sql_queries = []
+    create_table_queries = []
+    add_foreign_key_queries = []
 
     for table in tables:
         table_name = table['table_name']  # Extract table name
         primary_key = table['primary_key']  # Extract primary key
         foreign_keys = table['foreign_keys']  # Extract foreign keys
-        columns = table['columns']  # Extract columns
+        columns = table['columns']  # Extract other columns
 
-        # Start creating the SQL statement
+        # Add primary and foreign key columns to the columns list if not already present
+        if primary_key not in columns:
+            columns.insert(0, primary_key)
+        for fk_column, _ in foreign_keys:
+            if fk_column not in columns:
+                columns.insert(0, fk_column)
+
+        # Start creating the SQL statement without foreign keys
         sql_query = f"CREATE TABLE {table_name} (\n"
         
         # Add columns
         for column in columns:
-            # Assuming all columns are VARCHAR for simplicity. Adjust data types as needed.
             sql_query += f"    {column} VARCHAR(255),\n"
         
         # Add the primary key
-        sql_query += f"    PRIMARY KEY ({primary_key}),\n"
+        sql_query += f"    PRIMARY KEY ({primary_key})\n"
+
+        # Remove the last comma and add closing parenthesis
+        sql_query += ");"
         
-        # Add foreign keys
+        # Add the generated SQL query for table creation
+        create_table_queries.append(sql_query)
+
+        # Generate foreign key constraints separately
         for fk_column, referenced in foreign_keys:
             referenced_table, referenced_column = referenced.split('.')
-            sql_query += f"    FOREIGN KEY ({fk_column}) REFERENCES {referenced_table}({referenced_column}),\n"
-        
-        # Remove the last comma and add closing parenthesis
-        sql_query = sql_query.rstrip(",\n") + "\n);"
-        
-        # Add the generated SQL query to the list
-        sql_queries.append(sql_query)
+            fk_query = f"ALTER TABLE {table_name} ADD CONSTRAINT fk_{fk_column}_{referenced_table} " \
+                       f"FOREIGN KEY ({fk_column}) REFERENCES {referenced_table}({referenced_column});"
+            add_foreign_key_queries.append(fk_query)
 
-    return sql_queries
+    return create_table_queries, add_foreign_key_queries
+
+
 
 def main():
     # Usage
     connection, cursor = connect_to_db()
 
     if connection:
-        # Your database operations here
-        
-        # Usage
-        files = ['tc1.txt', 'tc2.txt', 'tc3.txt', 'tc4.txt', 'tc5.txt', 'tc6.txt', 'tc7.txt', 'tc8.txt', 'tc9.txt']
-        for file in files:
-            tables_data = parse_input_file(file)
-            print(file)
-            for table in tables_data:
-                print(table)
-            # Generate SQL queries
-            sql_queries = generate_create_table_sql(tables_data)
+        try:
+            # List of files to process
+            files = ['tc1.txt']
             
-            # Output the SQL queries
-            for query in sql_queries:
-                print(query)
-            print("\n\n")
+            for file in files:
+                # Parse the file to get table schema
+                tables_data = parse_input_file(file)
+                print(f"Processing file: {file}")
 
-        
-        # Don't forget to close the connection when you're done
-        cursor.close()
-        connection.close()
-        print("Database connection closed.")
+                # Generate SQL queries for creating tables and foreign keys
+                create_table_queries, add_foreign_key_queries = generate_create_table_sql(tables_data)
+
+                # Execute table creation queries first
+                for query in create_table_queries:
+                    print(f"Executing table creation query: \n{query}")
+                    try:
+                        cursor.execute(query)
+                    except Exception as e:
+                        print(f"Error executing query: {query}")
+                        print(f"Error: {e}")
+
+                # Commit the table creation changes
+                connection.commit()
+
+                # Now execute the foreign key constraints
+                for query in add_foreign_key_queries:
+                    print(f"Executing foreign key constraint query: \n{query}")
+                    try:
+                        cursor.execute(query)
+                    except Exception as e:
+                        print(f"Error executing query: {query}")
+                        print(f"Error: {e}")
+
+                # Commit the foreign key constraints
+                connection.commit()
+                print(f"Tables and foreign keys from {file} created successfully!\n")
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            connection.rollback()  # Rollback if something goes wrong
+
+        finally:
+            # Close the cursor and connection
+            cursor.close()
+            connection.close()
+            print("Database connection closed.")
+
 
 if __name__ == "__main__":
     main()
