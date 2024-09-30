@@ -1,4 +1,5 @@
 import psycopg2
+import sys
 import re
 from psycopg2 import OperationalError
 
@@ -34,11 +35,26 @@ def connect_to_db():
         print(f"Error connecting to the database: {e}")
         return None, None
     
+def drop_all_tables(cursor):
+    try:
+        # Query to find all tables in the 'public' schema
+        cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';")
+        tables = cursor.fetchall()
+
+        for table in tables:
+            table_name = table[0]
+            # Drop each table with CASCADE to handle foreign key dependencies
+            cursor.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE;")
+            print(f"Dropped table {table_name}")
+
+    except Exception as e:
+        print(f"Error dropping tables: {e}")
+
 def parse_input_file(file_path):
     tables = []
     with open(file_path, 'r') as file:
         for line in file:
-            line = line.strip()
+            line = line.strip().rstrip(';')
             if line:
                 # Partition the line at the first occurrence of '('
                 table_name, _, schema = line.partition('(')
@@ -116,46 +132,60 @@ def generate_create_table_sql(tables):
 
 
 def main():
+    # Get the input file name from command-line arguments
+    if len(sys.argv) < 2:
+        print("Usage: python3 checkdb.py database=your_file.txt")
+        return
+
+    arg = sys.argv[1]
+    if arg.startswith("database="):
+        input_file = arg.split("=", 1)[1].strip()  # Strip whitespace
+        print(f"Input file: '{input_file}'")  # Debug print to check the file name
+    else:
+        print("Invalid argument format. Expected format: database=your_file.txt")
+        return
+    
     # Usage
     connection, cursor = connect_to_db()
 
     if connection:
         try:
-            # List of files to process
-            files = ['tc1.txt']
-            
-            for file in files:
-                # Parse the file to get table schema
-                tables_data = parse_input_file(file)
-                print(f"Processing file: {file}")
+            # Drop all existing tables first
+            drop_all_tables(cursor)
+            connection.commit()
+            print("All tables dropped successfully.")
 
-                # Generate SQL queries for creating tables and foreign keys
-                create_table_queries, add_foreign_key_queries = generate_create_table_sql(tables_data)
+            # Parse the file to get table schema
+            tables_data = parse_input_file(input_file)
+            print(f"Processing file: {input_file}")
 
-                # Execute table creation queries first
-                for query in create_table_queries:
-                    print(f"Executing table creation query: \n{query}")
-                    try:
-                        cursor.execute(query)
-                    except Exception as e:
-                        print(f"Error executing query: {query}")
-                        print(f"Error: {e}")
+            # Generate SQL queries for creating tables and foreign keys
+            create_table_queries, add_foreign_key_queries = generate_create_table_sql(tables_data)
 
-                # Commit the table creation changes
-                connection.commit()
+            # Execute table creation queries first
+            for query in create_table_queries:
+                print(f"Executing table creation query: \n{query}")
+                try:
+                    cursor.execute(query)
+                except Exception as e:
+                    print(f"Error executing query: {query}")
+                    print(f"Error: {e}")
 
-                # Now execute the foreign key constraints
-                for query in add_foreign_key_queries:
-                    print(f"Executing foreign key constraint query: \n{query}")
-                    try:
-                        cursor.execute(query)
-                    except Exception as e:
-                        print(f"Error executing query: {query}")
-                        print(f"Error: {e}")
+            # Commit the table creation changes
+            connection.commit()
 
-                # Commit the foreign key constraints
-                connection.commit()
-                print(f"Tables and foreign keys from {file} created successfully!\n")
+            # Now execute the foreign key constraints
+            for query in add_foreign_key_queries:
+                print(f"Executing foreign key constraint query: \n{query}")
+                try:
+                    cursor.execute(query)
+                except Exception as e:
+                    print(f"Error executing query: {query}")
+                    print(f"Error: {e}")
+
+            # Commit the foreign key constraints
+            connection.commit()
+            print(f"Tables and foreign keys from {input_file} created successfully!\n")
 
         except Exception as e:
             print(f"An error occurred: {e}")
