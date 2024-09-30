@@ -1,4 +1,5 @@
 import psycopg2
+import re
 from psycopg2 import OperationalError
 
 def connect_to_db():
@@ -67,6 +68,42 @@ def parse_input_file(file_path):
 
     return tables
 
+# Make a function to check for referential integrity (checks referred table if fk is that table's pk)
+
+
+def generate_create_table_sql(tables):
+    sql_queries = []
+
+    for table in tables:
+        table_name = table['table_name']  # Extract table name
+        primary_key = table['primary_key']  # Extract primary key
+        foreign_keys = table['foreign_keys']  # Extract foreign keys
+        columns = table['columns']  # Extract columns
+
+        # Start creating the SQL statement
+        sql_query = f"CREATE TABLE {table_name} (\n"
+        
+        # Add columns
+        for column in columns:
+            # Assuming all columns are VARCHAR for simplicity. Adjust data types as needed.
+            sql_query += f"    {column} VARCHAR(255),\n"
+        
+        # Add the primary key
+        sql_query += f"    PRIMARY KEY ({primary_key}),\n"
+        
+        # Add foreign keys
+        for fk_column, referenced in foreign_keys:
+            referenced_table, referenced_column = referenced.split('.')
+            sql_query += f"    FOREIGN KEY ({fk_column}) REFERENCES {referenced_table}({referenced_column}),\n"
+        
+        # Remove the last comma and add closing parenthesis
+        sql_query = sql_query.rstrip(",\n") + "\n);"
+        
+        # Add the generated SQL query to the list
+        sql_queries.append(sql_query)
+
+    return sql_queries
+
 def main():
     # Usage
     connection, cursor = connect_to_db()
@@ -81,12 +118,19 @@ def main():
             print(file)
             for table in tables_data:
                 print(table)
+            # Generate SQL queries
+            sql_queries = generate_create_table_sql(tables_data)
+            
+            # Output the SQL queries
+            for query in sql_queries:
+                print(query)
+            print("\n\n")
 
         
         # Don't forget to close the connection when you're done
         cursor.close()
         connection.close()
         print("Database connection closed.")
- 
+
 if __name__ == "__main__":
     main()
