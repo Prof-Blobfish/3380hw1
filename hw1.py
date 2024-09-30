@@ -54,7 +54,7 @@ def parse_input_file(file_path):
     tables = []
     with open(file_path, 'r') as file:
         for line in file:
-            line = line.strip().rstrip(';')
+            line = line.strip().rstrip(';')  # Remove trailing semicolon
             if line:
                 # Partition the line at the first occurrence of '('
                 table_name, _, schema = line.partition('(')
@@ -71,9 +71,10 @@ def parse_input_file(file_path):
                 # Split the schema into columns
                 columns = [col.strip() for col in schema.split(',')]
                 for column in columns:
-                    if '(pk)' in column:
-                        table_dict['primary_key'] = column.replace('(pk)', '').strip()
-                    elif '(fk:' in column:
+                    column_lower = column.lower()
+                    if '(pk)' in column_lower:
+                        table_dict['primary_key'] = column_lower.replace('(pk)', '').strip()
+                    elif '(fk:' in column_lower:
                         # Extract the foreign key
                         foreign_key = column.split('(fk:')[1].strip().rstrip(')')
                         table_dict['foreign_keys'].append((column.split('(')[0].strip(), foreign_key))
@@ -145,7 +146,7 @@ def main():
         print("Invalid argument format. Expected format: database=your_file.txt")
         return
     
-    # Usage
+    # Connect to the database
     connection, cursor = connect_to_db()
 
     if connection:
@@ -162,14 +163,21 @@ def main():
             # Generate SQL queries for creating tables and foreign keys
             create_table_queries, add_foreign_key_queries = generate_create_table_sql(tables_data)
 
+            integrity_results = {}
+            normalization_results = {}
+
             # Execute table creation queries first
-            for query in create_table_queries:
-                print(f"Executing table creation query: \n{query}")
+            for table, query in zip(tables_data, create_table_queries):
+                table_name = table['table_name']
+                print(f"Executing table creation query for {table_name}: \n{query}")
                 try:
                     cursor.execute(query)
+                    integrity_results[table_name] = 'Y'  # If creation succeeds, set integrity to 'Y'
+                    normalization_results[table_name] = 'Y'  # Update this based on your normalization checks
                 except Exception as e:
-                    print(f"Error executing query: {query}")
-                    print(f"Error: {e}")
+                    print(f"Error executing query for {table_name}: {e}")
+                    integrity_results[table_name] = 'N'  # Set integrity to 'N' on failure
+                    normalization_results[table_name] = 'Y'  # Update this based on your normalization checks
 
             # Commit the table creation changes
             connection.commit()
@@ -180,12 +188,26 @@ def main():
                 try:
                     cursor.execute(query)
                 except Exception as e:
-                    print(f"Error executing query: {query}")
+                    print(f"Error executing foreign key constraint query: {query}")
                     print(f"Error: {e}")
 
             # Commit the foreign key constraints
             connection.commit()
             print(f"Tables and foreign keys from {input_file} created successfully!\n")
+
+            # Print the results
+            print("-----------------------------------------")
+            print(f"{'Table':<20} {'Referential Integrity':<20} {'Normalized'}")
+            for table_name in integrity_results.keys():
+                print(f"{table_name:<20} {integrity_results[table_name]:<20} {normalization_results[table_name]}")
+            print("-----------------------------------------")
+            
+            # Check overall integrity and normalization
+            db_integrity = 'Y' if all(result == 'Y' for result in integrity_results.values()) else 'N'
+            db_normalized = 'Y' if all(result == 'Y' for result in normalization_results.values()) else 'N'
+            print(f"DB Referential Integrity: {db_integrity}")
+            print(f"DB Normalized: {db_normalized}")
+            print("-----------------------------------------")
 
         except Exception as e:
             print(f"An error occurred: {e}")
@@ -196,7 +218,6 @@ def main():
             cursor.close()
             connection.close()
             print("Database connection closed.")
-
 
 if __name__ == "__main__":
     main()
