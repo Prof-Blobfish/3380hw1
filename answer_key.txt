@@ -1,0 +1,49 @@
+tc1.txt
+-----------------------------------------
+    referential integrity normalized
+T1                Y           Y
+T2                Y           Y
+T3                Y           Y
+DB referential integrity: Y
+DB normalized: Y
+
+
+
+tc2.txt
+-----------------------------------------
+    referential integrity normalized
+T1                Y           N
+T2                Y           Y
+T3                N           N
+DB referential integrity: N
+DB normalized: N
+
+
+tc3.txt
+-----------------------------------------
+    referential integrity normalized
+T1                N           Y
+T2                Y           Y
+T3                Y           Y
+T4                Y           N
+DB referential integrity: N
+DB normalized: N
+
+output_tc4.txt
+-----------------------------------------
+    referential integrity normalized
+T1                Y           Y
+T2                Y           N
+T3                Y           N
+DB referential integrity: Y
+DB normalized: N
+
+
+output_tc5.txt
+-----------------------------------------
+    referential integrity normalized
+T1                N           Y
+T2                N           Y
+T3                Y           Y
+DB referential integrity: N
+DB normalized: Y

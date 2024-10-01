@@ -1,0 +1,28 @@
+Notes:
+Text file contains db names, table names, column names and keys.
+If a table has no PK specified or FK has an invalid column name, your program should display an error message and skip such table.
+BCNF implies 3NF.
+
+Possible solution:
+1. db_params creates database cosc3380
+2. Set schema to HW1
+3. Use tc1.sql to generate the tables and populate them
+    SQL file provides the table names, column names, and values for said columns
+    SQL file also DELETES tables in the database if they already exist, so its most efficient to just let the SQL file create them
+4. Use the information in tc1.txt to assign columns as PKs and FKs using SQL?
+5. Detrmine Referential integrity as Y/N
+6. Determine BCNF (BCNF implies 3NF) as Y/N
+7. Output text file
+
+This is almost definitely incorrect. The new HW1 summary says "In the HW1 schema, create tables based on the test case file (e.g., tc1.txt )"
+and doesn't really mention using the SQL files and the original states the same and adds "The actual tables with data will be already stored in the input
+database" (which im assuimg is reffering to the SQL files). Creating the tables using the txt files and populating them with the sql files would be fine EXCEPT
+the SQL files all begin with "DROP TABLE IF EXISTS" so using it to try to populate the data deletes tables already created if they share the same name
+(which they would) unless I am misunderstanding (which is likely). So im not sure how were supposed to check the integrity/BCNF of the table because I don't know 
+where/how were supposed to get the data for the tables.
+
+I'll ask the TA about this and i'll let you know what he tells me.
+
+Before realizing this, I started the process of scrapping most of the code and implementing the possible solution outlined above but I really don't think it's correct, so
+it's up to you if you want to continue working on it, though i'd look into other options (it would probably work and give us the correct result, I just don't think its what 
+they want soooo probably wouldnt get a good grade on it).
