@@ -5,20 +5,12 @@ import os
 import re
 
 def connect_to_db():
-    # Define our connection parameters
-    # db_params = {
-    #     "host": "bds01.cs.uh.edu",
-    #     "dbname": "cosc3380",
-    #     "user": "dbs22",
-    #     "port": "5432",
-    #     "password": "3380tranmart"  # It's better to use environment variables for passwords
-    # }
-
     db_params = {
-        "host": "localhost",
-        "dbname": "hw1",
-        "user": "postgres",
-        "port": 5432
+        "host": "127.0.0.1",
+        "dbname": "cosc3380",
+        "user": "dbs22",
+        "port": "5432",
+        "password": "3380tranmart"  # It's better to use environment variables for passwords
     }
 
     try:
