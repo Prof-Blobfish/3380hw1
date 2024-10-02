@@ -51,9 +51,6 @@ def get_filename_without_extension(filepath):
 #Use inputSQL to create tables
 def execute_sql_file(cursor, conn, file_path):
     try:
-        # Set search path to the desired schema
-        print("Search path set to hw1")
-        
         # Read and execute SQL script
         with open(file_path, 'r') as file:
             sql = file.read()
@@ -67,8 +64,65 @@ def execute_sql_file(cursor, conn, file_path):
 
 
 #Use inputTXT to assign keys to tables
-# def assign_keys():
-#     stuff here
+def parse_input_file(file_path):
+    tables = []
+    with open(file_path, 'r') as file:
+        for line in file:
+            line = line.strip().rstrip(';')  # Remove trailing semicolon
+            if line:
+                # Partition the line at the first occurrence of '('
+                table_name, _, schema = line.partition('(')
+                schema = schema[:-1]  # Remove the closing parenthesis
+
+                # Initialize the dictionary for the table
+                table_dict = {
+                    'table_name': table_name.strip(),
+                    'primary_key': None,
+                    'foreign_keys': [],
+                    'columns': []
+                }
+
+                # Split the schema into columns
+                columns = [col.strip() for col in schema.split(',')]
+                for column in columns:
+                    column_lower = column.lower()
+                    if '(pk)' in column_lower:
+                        table_dict['primary_key'] = column_lower.replace('(pk)', '').strip()
+                    elif '(fk:' in column_lower:
+                        # Extract the foreign key
+                        foreign_key = column.split('(fk:')[1].strip().rstrip(')')
+                        table_dict['foreign_keys'].append((column.split('(')[0].strip(), foreign_key))
+                    else:
+                        table_dict['columns'].append(column.strip())
+
+                tables.append(table_dict)
+
+    return tables
+
+def generate_keys_sql(tables, base_name):
+    add_primary_key_queries = []
+    add_foreign_key_queries = []
+
+    for table in tables:
+        table_name = table['table_name']  # Extract table name
+        primary_key = table['primary_key']  # Extract primary key
+        foreign_keys = table['foreign_keys']  # Extract foreign keys
+        columns = table['columns']  # Extract other columns
+
+        # Add primary key constraint if specified
+        if primary_key:
+            pk_query = f"ALTER TABLE {base_name}_{table_name} ADD CONSTRAINT pk_{table_name} PRIMARY KEY ({primary_key});"
+            add_primary_key_queries.append(pk_query)
+
+        # Generate foreign key constraints separately
+        for fk_column, referenced in foreign_keys:
+            referenced_table, referenced_column = referenced.split('.')
+            fk_query = f"ALTER TABLE {base_name}_{table_name} ADD CONSTRAINT fk_{fk_column}_{referenced_table} " \
+                       f"FOREIGN KEY ({fk_column}) REFERENCES {base_name}_{referenced_table}({referenced_column});"
+            add_foreign_key_queries.append(fk_query)
+
+    # Combine the queries: first primary keys, then foreign keys
+    return add_primary_key_queries, add_foreign_key_queries
 
 # #Check for referential integrity
 # def RI_check():
@@ -106,6 +160,28 @@ def main():
             # New stuff
             base_name = get_filename_without_extension(input_file) 
             execute_sql_file(cursor, conn, base_name + ".sql")
+
+            tables_data = parse_input_file(input_file)
+            add_primary_key_queries, add_foreign_key_queries = generate_keys_sql(tables_data, base_name)
+
+            # Execute primary key constraints first
+            for query in add_primary_key_queries:
+                print(f"Executing primary key constraint query: \n{query}")
+                try:
+                    cursor.execute(query)
+                except Exception as e:
+                    print(f"Error executing primary key constraint query: {query}")
+                    print(f"Error: {e}")
+
+            # Then execute foreign key constraints
+            for query in add_foreign_key_queries:
+                print(f"Executing foreign key constraint query: \n{query}")
+                try:
+                    cursor.execute(query)
+                except Exception as e:
+                    print(f"Error executing foreign key constraint query: {query}")
+                    print(f"Error: {e}")
+
             conn.commit()  # Commit the transaction
 
             cursor.close()
