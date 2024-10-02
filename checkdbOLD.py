@@ -4,14 +4,25 @@ import sys
 import os
 import re
 
+SQLArg = []
+
 def connect_to_db():
     db_params = {
         "host": "127.0.0.1",
         "dbname": "cosc3380",
+        "password": "3380tranmart",
         "user": "dbs22",
-        "port": "5432",
-        "password": "3380tranmart" 
+        "port": 5432
     }
+
+#def connect_to_db():
+#    db_params = {
+#        "host": "localhost",
+#        "dbname": "hw1",
+#        "password": "3380tranmart",
+#        "user": "postgres",
+#        "port": 5432
+#    }
 
     try:
         # Establish a connection
@@ -42,6 +53,7 @@ def drop_all_tables(cursor):
     try:
         # Find all tables in the 'public' schema
         cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';")
+        SQLArg.append("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';")
         tables = cursor.fetchall()
 
         for table in tables:
@@ -49,6 +61,7 @@ def drop_all_tables(cursor):
             drop_query = (f"DROP TABLE IF EXISTS {table_name} CASCADE;")
             drop_queries.append(drop_query)
             cursor.execute(drop_query)
+            SQLArg.append(drop_query)
             print(f"Dropped table {table_name}")
 
         return drop_queries
@@ -162,7 +175,7 @@ def main():
             check_file_exists(input_file)
 
     results_file = "output_" + get_filename_without_extension(input_file) + ".txt"
-    sql_file = get_filename_without_extension(input_file) + ".sql"
+    sql_file = "output_" + get_filename_without_extension(input_file) + ".sql"
     print("Results: " + results_file)
     print("SQL Queries: " + sql_file)
     
@@ -197,6 +210,7 @@ def main():
                 print(f"Executing table creation query for {table_name}: \n{query}")
                 try:
                     cursor.execute(query)
+                    SQLArg.append(query)
                     integrity_results[table_name] = 'Y'
                     normalization_results[table_name] = 'Y'
                 except Exception as e:
@@ -211,6 +225,7 @@ def main():
                 print(f"Executing foreign key constraint query: \n{query}")
                 try:
                     cursor.execute(query)
+                    SQLArg.append(query)
                 except Exception as e:
                     print(f"Error executing foreign key constraint query: {query}")
                     print(f"Error: {e}")
@@ -236,6 +251,13 @@ def main():
 
             print(f"Results successfully written to {results_file}")
 
+            print("Array: ", SQLArg)
+            SQLArgWriter = open("SQL_Arguments.sql", "a")
+            for x in SQLArg:
+                SQLArgWriter.write(str(x))  # Convert x to string if necessary
+                SQLArgWriter.write("\n")  # Optionally, add a newline after each write
+            SQLArgWriter.close()
+
         except Exception as e:
             print(f"An error occurred: {e}")
             connection.rollback()
@@ -245,6 +267,8 @@ def main():
             cursor.close()
             connection.close()
             print("Database connection closed.")
+
+
 
 if __name__ == "__main__":
     main()

@@ -1,9 +1,9 @@
 -----------------------------------------
 Table      Referential Integrity     Normalized
-tc1_t1               Y                    Y
-tc1_t2               Y                    Y
-tc1_t3               Y                    Y
+T1                   Y                    N
+T2                   Y                    N
+T3                   Y                    Y
 -----------------------------------------
 DB Referential Integrity: Y
-DB Normalized: Y
+DB Normalized: N
 -----------------------------------------
