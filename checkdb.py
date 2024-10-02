@@ -49,29 +49,34 @@ def get_filename_without_extension(filepath):
     return os.path.splitext(base_name)[0]
 
 #Use inputSQL to create tables
-def execute_sql_file(cursor, file_path):
-    cursor.execute("SET search_path TO HW1")
-    with open(file_path, 'r') as file:
-        sql = file.read()
-
+def execute_sql_file(cursor, conn, file_path):
     try:
+        # Set search path to the desired schema
+        print("Search path set to hw1")
+        
+        # Read and execute SQL script
+        with open(file_path, 'r') as file:
+            sql = file.read()
+        
         cursor.execute(sql)
         print("SQL script executed successfully!")
+    
     except Exception as e:
         print(f"Error executing SQL file: {e}")
 
 
+
 #Use inputTXT to assign keys to tables
-def assign_keys():
-    stuff here
+# def assign_keys():
+#     stuff here
 
-#Check for referential integrity
-def RI_check():
-    stuff here
+# #Check for referential integrity
+# def RI_check():
+#     stuff here
 
-#Check for BCNF
-def BCNF_check():
-    stuff here
+# #Check for BCNF
+# def BCNF_check():
+#     stuff here
 
 
 def main():
@@ -90,16 +95,18 @@ def main():
                 print(f"Error: The file '{input_file}' does not exist.")
                 sys.exit(1)
 
-            #actually new stuff
-            base_name = get_filename_without_extension(input_file) #takes the tcX out of "tcX.txt" to use the corresponding SQL file
-            execute_sql_file(cursor, base_name + ".sql") #GPT created this function, I am assuming it works and creates tables
-
-
             conn, cursor = connect_to_db()
-
             if conn is None:
                 print("Exiting due to database connection failure.")
                 sys.exit(1)
+
+            # Set the search path to hw1
+            cursor.execute("SET search_path TO public;")
+
+            # New stuff
+            base_name = get_filename_without_extension(input_file) 
+            execute_sql_file(cursor, conn, base_name + ".sql")
+            conn.commit()  # Commit the transaction
 
             cursor.close()
             conn.close()
